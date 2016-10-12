@@ -158,12 +158,21 @@
                (close! results)))
     results))
 
+(defn run-hook
+  [simulation options hook]
+  {:pre (#{:pre-hook :post-hook} hook)}
+  (when-let [f (get simulation hook)]
+    (f (or (:context options) {}))))
+
 (defn run [{:keys [scenarios] :as simulation}
            {:keys [concurrency users] :as options}]
   (let [user-ids (or users (range concurrency))]
     (validate schema/Simulation simulation)
-    (run-scenarios (assoc options :runner (choose-runner scenarios
+    (run-hook simulation options :pre-hook)
+    (let [result (run-scenarios (assoc options :runner (choose-runner scenarios
                                                          (count user-ids)
                                                          options))
-                   (weighted-scenarios user-ids scenarios)
-                   false)))
+                                (weighted-scenarios user-ids scenarios)
+                                false)]
+      (run-hook simulation options :post-hook)
+      result)))
